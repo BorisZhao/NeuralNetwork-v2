@@ -4,7 +4,6 @@ from flask import Flask, request
 import requests
 import json
 import threading
-import matplotlib.pyplot as plt
 from numpy import *
 import socket
 
@@ -19,10 +18,14 @@ rate_regularization = 0
 network = Network([561, 1122, 6], rate_learning, rate_regularization)
 
 # training parameters
-path_training = 'subject1.csv'
+path_training = '../subject1.csv'
 size_batch = 3
 round_epoch = 10
 sample_training, label_training = LoadDataset(path_training, size_batch)
+
+# testing parameters
+path_testing = '../subject3.csv'
+sample_test, label_test=LoadDataset(path_testing)
 
 # annealing parameters
 rate_annealing = 10
@@ -40,7 +43,7 @@ list_w=[]
 list_updated=[]
 list_n=[]
 C=1
-K=10
+K=1
 cnt=0
 activated=False
 
@@ -48,6 +51,7 @@ def Update():
     global cnt
     global network
     print('Global Epoch {}...'.format(cnt), end='')
+    Test(network, sample_test, label_test)
     Train(network, sample_training, label_training, round_epoch, range_gradient_clipping, rate_gradient_clipping, threshold_differential, threshold_loss, rate_annealing)
     # if cnt % 30 == 0:
     #     plt.plot(network.history_loss, color='blue')
@@ -60,10 +64,10 @@ def Update():
     temp['w'] = json.dumps(w)
     temp['n'] = len(sample_training)
     try:
-        for i in ip:
+        # for i in ip:
             # requests.post('http://192.168.0.{}/FederatedAverage'.format(i), data=temp)
-            result=requests.post('http://192.168.0.{}:9000/FederatedAverage'.format(i), data=temp)
-            # result = requests.post('http://192.168.88.227:9000/FederatedAverage'.format(i), data=temp)
+            # result=requests.post('http://192.168.0.{}:9000/FederatedAverage'.format(i), data=temp)
+        result = requests.post('http://172.26.154.103:9000/FederatedAverage', data=temp)
     except:
         pass
 
@@ -74,14 +78,11 @@ def FederatedAverage():
     global list_updated
     global list_n
     global cnt
-    # lock.acquire()
     if request.remote_addr in list_updated:
-        # nothing
         print("denied")
         return ''
     if len(list_w)<C*K:
         # add received weight to pool
-
         list_updated.append(request.remote_addr)
         temp=[]
         for l in json.loads(request.form['w']):
@@ -103,7 +104,6 @@ def FederatedAverage():
             list_updated = []
             list_w = []
             list_n = []
-    # lock.release()
     return ''
 
 @app.route('/activate',methods=['GET'])
@@ -112,12 +112,16 @@ def activate():
     if not activated:
         update = threading.Thread(target=Update)
         update.start()
-        activate=True
+        activated=True
     return 'Activated.', 200
 
-@app.route('/plot',methods=['GET'])
-def get_plot():
-    return json.dumps(network.history_loss)
+@app.route('/plot_train',methods=['GET'])
+def get_training_plot():
+    return json.dumps(network.history_train_loss)
+
+@app.route('/plot_test',methods=['GET'])
+def get_testing_plot():
+    return json.dumps(network.history_test_loss)
 
 def app_run():
     s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)

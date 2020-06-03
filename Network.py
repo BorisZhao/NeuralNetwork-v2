@@ -14,7 +14,8 @@ class Network:
     rate_regularization = 0
     term_regularization = 0
     # plot
-    history_loss = []
+    history_train_loss = []
+    history_test_loss = []
 
     # initialization
     def __init__(self, list_description: list, rate_learning: float, rate_regularization: float):
@@ -77,8 +78,6 @@ class Network:
         self.list_loss_history.append(loss_sum / len(array_input))
 
 
-
-
 # load training set
 def LoadDataset(abs_path: str, size_batch: int = 1):
     print("Loading training set...", end='')
@@ -128,15 +127,26 @@ def Train(network: Network, sample_train: list, label_train: list, round_epoch: 
             network.rate_learning *= rate_gradient_clipping
         # simulated annealing
         if cnt > 2:
-            if abs(network.history_loss[-2] - network.history_loss[-1]) < threshold_differential and network.history_loss[-1] > threshold_loss:
+            if abs(network.list_loss_history[-2] - network.list_loss_history[-1]) < threshold_differential and \
+                    network.list_loss_history[-1] > threshold_loss:
                 network.rate_learning *= rate_annealing
         # batch training
         for batch_sample, batch_label in zip(sample_train, label_train):
             network.GradientDescent(batch_sample, batch_label)
-        # loss calculation
-        network.history_loss.append(sum(network.list_loss_history) / len(network.list_loss_history))
-        network.list_loss_history.clear()
-        # print('Done')
+    # loss calculation
+    network.history_train_loss.append(sum(network.list_loss_history) / len(network.list_loss_history))
+    network.list_loss_history.clear()
+
+
+def Test(network: Network, sample_test: list, label_test: list):
+    # predict
+    err = 0
+    for batch_sample, batch_label in zip(sample_test, label_test):
+        if argmax(network.Predict(batch_sample)[0]) == argmax(batch_label[0]):
+            continue
+        else:
+            err += 1
+    network.history_test_loss.append(err / len(sample_test))
 
 # # statistic
 # time_end=time()
