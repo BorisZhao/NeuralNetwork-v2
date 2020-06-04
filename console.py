@@ -19,15 +19,6 @@ loss_9=[]
 loss_train=[[], [], [], [], [], [], [], [], [], []]
 rate_err=[[], [], [], [], [], [], [], [], [], []]
 
-# plot
-# def plot():
-
-
-#     plt.plot(network.history_loss, color='blue')
-#     plt.pause(5)
-#     while True:
-#         plt.plot(network.history_loss)
-#         plt.pause(0.01)
 
 def activate(port):
     try:
@@ -45,11 +36,9 @@ while True:
         plt.title("Training loss and ERR")
         plt.xlabel('Iteration')
         for i,port in zip(range(0,10),range(9000,9010)):
-            # if i==2:
             try:
                 result_train = requests.get(f'http://139.198.0.182:{port}/plot_train')
                 result_test = requests.get(f'http://139.198.0.182:{port}/plot_test')
-                # print(result.text.__class__)
                 loss_train[i]=np.array(ast.literal_eval(result_train.text))
                 rate_err[i] = np.array(ast.literal_eval(result_test.text))
                 plt.plot(loss_train[i], label=f'loss_{i}')
@@ -57,22 +46,7 @@ while True:
             except:
                 print(f"Failed when getting plot from 139.198.0.182:{port}")
                 continue
-        # print(np.array(rate_err))
         plt.plot(np.mean(np.array(rate_err), axis=0),label=f'err_global', linestyle='-.')
-        # try:
-        #     result_train = requests.get(f'http://172.26.154.224:9000/plot_train')
-        #     result_test = requests.get(f'http://172.26.154.224:9000/plot_test')
-        #     # print(result.text.__class__)
-        #     loss_train[-1]=ast.literal_eval(result_train.text)
-        #     rate_err[-1]=ast.literal_eval(result_test.text)
-        #     plt.plot(loss_train[-1], label=f'client 0 (local)', linestyle='-.')
-        #     plt.plot(rate_err[-1], label=f'error rate client 0 (local)', linestyle='-.')
-        # except:
-        #     print(f"Failed when getting plot from 172.26.154.224:9000")
-
-        # plt.show()
-        # plt.legend(bbox_to_anchor=(1.01, 1), loc=2, borderaxespad=0)
-        plt.legend()
         plt.show()
     elif cmd=='activate' or cmd=='a':
         for port in range(9000,9010):

@@ -74,25 +74,16 @@ def Krum():
     for l in json.loads(request.form['w']):
         temp.append(array(l))
     list_w.append(temp.copy())
-    # print(list_w)
     if len(list_w)==n:
         for i in range(0,n):
             temp=[]
             for j in range(0,n):
-                # print(list_w[i])
-                # print(list_w[j])
-                # print(linalg.norm(subtract(list_w[i], list_w[j])))
                 norm=0
                 for sub in subtract(list_w[i], list_w[j]):
                     norm+=linalg.norm(sub)
                 temp.append(norm)
             temp.sort()
-            # print(temp)
-            # print(temp[0:1])
-            # print(n-f)
-            # print(temp[0:n-f])
             list_score[i]=sum(temp[0:(n-f)])
-        # print(list_score)
         index_w_final=list_score.index(min(list_score))
         network.list_weight=list_w[index_w_final]
         cnt+=1
@@ -108,7 +99,7 @@ def activate():
     if not activated:
         update = threading.Thread(target=Update)
         update.start()
-        activate=True
+        activated=True
     return 'Activated.', 200
 
 @app.route('/plot_train',methods=['GET'])
@@ -127,5 +118,4 @@ def app_run():
 
 if __name__ == '__main__':
     main_app = threading.Thread(target=app_run)
-    # main_app.daemon = True
     main_app.start()

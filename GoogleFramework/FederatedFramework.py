@@ -37,7 +37,6 @@ rate_gradient_clipping = 1
 range_gradient_clipping = 50
 
 # federation parameters
-lock=threading.Lock()
 ip=range(2,12)
 list_w=[]
 list_updated=[]
@@ -53,21 +52,15 @@ def Update():
     print('Global Epoch {}...'.format(cnt), end='')
     Test(network, sample_test, label_test)
     Train(network, sample_training, label_training, round_epoch, range_gradient_clipping, rate_gradient_clipping, threshold_differential, threshold_loss, rate_annealing)
-    # if cnt % 30 == 0:
-    #     plt.plot(network.history_loss, color='blue')
-    #     plt.pause(0.01)
     w=[]
     for m in network.list_weight:
         w.append(m.tolist())
-    # for i in ip:
     temp = {}
     temp['w'] = json.dumps(w)
     temp['n'] = len(sample_training)
     try:
         for i in ip:
-            # requests.post('http://192.168.0.{}/FederatedAverage'.format(i), data=temp)
             result=requests.post('http://192.168.0.{}:9000/FederatedAverage'.format(i), data=temp)
-            # result = requests.post('http://192.168.88.227:9000/FederatedAverage'.format(i), data=temp)
     except:
         pass
 
@@ -78,14 +71,12 @@ def FederatedAverage():
     global list_updated
     global list_n
     global cnt
-    # lock.acquire()
     if request.remote_addr in list_updated:
         # nothing
         print("denied")
         return ''
     if len(list_w)<C*K:
         # add received weight to pool
-
         list_updated.append(request.remote_addr)
         temp=[]
         for l in json.loads(request.form['w']):
@@ -107,7 +98,6 @@ def FederatedAverage():
             list_updated = []
             list_w = []
             list_n = []
-    # lock.release()
     return ''
 
 @app.route('/activate',methods=['GET'])
@@ -135,23 +125,4 @@ def app_run():
 
 if __name__ == '__main__':
     main_app = threading.Thread(target=app_run)
-    # main_app.daemon = True
     main_app.start()
-    # sleep(5)
-    # plot=threading.Thread(target=plot)
-    # plot.start()
-# while True:
-#     pass
-
-        # print('Done')
-
-# w=[]
-# for m in network.list_weight:
-#     # print(m)
-#     w.append(m.tolist())
-# # print(len(w))
-# ww=json.dumps(w)
-# print(array(json.loads(ww)[0]))
-# print(array(json.loads(ww)[1]))
-
-
