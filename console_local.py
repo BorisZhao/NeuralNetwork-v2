@@ -31,10 +31,10 @@ rate_err=[[], [], [], [], [], [], [], [], [], []]
 
 def activate(port):
     try:
-        result = requests.get(f'http://172.26.154.103:{port}/activate')
+        result = requests.get(f'http://26.26.26.1:{port}/activate')
         print(result.text)
     except:
-        print(f"Failed when activating 139.198.0.182:{port}")
+        print(f"Failed when activating 26.26.26.1:{port}")
 
 print("This is the console of FL-test. Copyright© Bo Zhao, all rights reserved.")
 
@@ -47,15 +47,15 @@ while True:
         # for i,port in zip(range(0,10),range(9000,9010)):
             # if i==2:
         try:
-            result_train = requests.get(f'http://172.26.154.103:9000/plot_train')
-            result_test = requests.get(f'http://172.26.154.103:9000/plot_test')
+            result_train = requests.get(f'http://26.26.26.1:9000/plot_train')
+            result_test = requests.get(f'http://26.26.26.1:9000/plot_test')
             # print(result.text.__class__)
             loss_train[0]=np.array(ast.literal_eval(result_train.text))
             rate_err[0] = np.array(ast.literal_eval(result_test.text))
             plt.plot(loss_train[0], label=f'loss_{0}')
             plt.plot(rate_err[0], label=f'err_{0}', linestyle='-.')
         except:
-            print(f"Failed when getting plot from 172.26.154.103:9000")
+            print(f"Failed when getting plot from 172.26.152.178:9000")
             continue
         # print(np.array(rate_err))
         # plt.plot(np.mean(np.array(rate_err), axis=0),label=f'err_global', linestyle='-.')

@@ -1,11 +1,13 @@
+import multiprocessing
+
 from Network import *
 from time import *
 from flask import Flask, request
 import requests
 import json
 import threading
+import matplotlib.pyplot as plt
 from numpy import *
-from numpy import linalg
 import socket
 
 app = Flask(__name__)
@@ -19,13 +21,13 @@ rate_regularization = 0
 network = Network([561, 1122, 6], rate_learning, rate_regularization)
 
 # training parameters
-path_training = '../subject1.csv'
+path_training = 'subject1.csv'
 size_batch = 3
 round_epoch = 10
 sample_training, label_training = LoadDataset(path_training, size_batch)
 
 # testing parameters
-path_testing = '../subject17.csv'
+path_testing = 'subject17.csv'
 sample_test, label_test=LoadDataset(path_testing)
 
 # annealing parameters
@@ -38,7 +40,10 @@ rate_gradient_clipping = 1
 range_gradient_clipping = 50
 
 # federated parameters
-ip=range(2,12)
+s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+s.connect(('8.8.8.8', 80))
+addr = s.getsockname()[0]
+ip=range(9000,9010)
 n=10
 f=3
 list_w=[]
@@ -46,6 +51,8 @@ list_score=zeros(n).tolist()
 activated=False
 cnt=0
 
+def Broadcast(temp:dict, port):
+    result = requests.post('http://{}:{}/FederatedAverage'.format(addr, port), data=temp)
 
 def Update():
     global cnt
@@ -60,7 +67,8 @@ def Update():
     temp['w'] = json.dumps(w)
     for i in ip:
         try:
-            result = requests.post('http://192.168.0.{}:9000/Krum'.format(i), data=temp)
+            t = threading.Thread(target=Broadcast, args=(temp, i))
+            t.start()
         except:
             print('Failed to broadcast parameters to 192.168.0.{}'.format(i))
 
@@ -83,7 +91,7 @@ def Krum():
                     norm+=linalg.norm(sub)
                 temp.append(norm)
             temp.sort()
-            list_score[i]=sum(temp[0:(n-f)])
+            list_score[i]=sum(temp[0:(n-f+1)])
         index_w_final=list_score.index(min(list_score))
         network.list_weight=list_w[index_w_final]
         cnt+=1
@@ -99,7 +107,7 @@ def activate():
     if not activated:
         update = threading.Thread(target=Update)
         update.start()
-        activated=True
+        activate=True
     return 'Activated.', 200
 
 @app.route('/plot_train',methods=['GET'])
@@ -117,5 +125,5 @@ def app_run():
     app.run(host='{}'.format(ip), port=9000)
 
 if __name__ == '__main__':
-    main_app = threading.Thread(target=app_run)
+    main_app = multiprocessing.Process(target=app_run)
     main_app.start()
