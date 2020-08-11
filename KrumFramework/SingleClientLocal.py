@@ -14,18 +14,18 @@ app = Flask(__name__)
 time_start = time()
 
 # neural network parameters
-rate_learning = 0.01
+rate_learning = 0.05
 rate_regularization = 0
 network = Network([561, 1122, 6], rate_learning, rate_regularization)
 
 # training parameters
-path_training = '../subject1.csv'
+path_training = '../train0.csv'
 size_batch = 3
 round_epoch = 10
 sample_training, label_training = LoadDataset(path_training, size_batch)
 
 # testing parameters
-path_testing = '../subject17.csv'
+path_testing = '../test0.csv'
 sample_test, label_test=LoadDataset(path_testing)
 
 # annealing parameters
@@ -34,8 +34,8 @@ threshold_differential = 0.0000
 threshold_loss = 1.0
 
 # gradient clipping parameters
-rate_gradient_clipping = 1
-range_gradient_clipping = 50
+rate_gradient_clipping = 0.95
+range_gradient_clipping = 100
 
 # federated parameters
 ip=range(2,12)
@@ -119,7 +119,7 @@ def get_training_plot():
 
 @app.route('/plot_test',methods=['GET'])
 def get_testing_plot():
-    return json.dumps(network.history_test_loss)
+    return json.dumps(network.history_test_acc)
 
 def app_run():
     s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
