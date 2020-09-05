@@ -2,7 +2,7 @@ from __future__ import division
 import heapq
 import multiprocessing
 
-from Network import *
+from Network_BP import *
 from time import *
 from flask import Flask, request
 import requests
@@ -29,12 +29,12 @@ network = Network([561, 1122, 6], rate_learning, rate_regularization)
 # training parameters
 path_training = '../train0.csv'
 size_batch = 10
-round_epoch = 5
+round_epoch = 10
 sample_training, label_training = LoadDataset(path_training, size_batch, True)
 
 # testing parameters
 path_testing = '../test0.csv'
-sample_test, label_test=LoadDataset(path_testing,10,True)
+sample_test, label_test=LoadDataset(path_testing,10, True)
 
 # annealing parameters
 rate_annealing = 10
@@ -69,8 +69,8 @@ def Update():
     print('Global Epoch {}...'.format(cnt), end='')
     if (not cnt==0) and (cnt % range_gradient_clipping==0):
         network.rate_learning=network.rate_learning*1
-    Test(network, sample_test, label_test)
-    Train(network, sample_training, label_training, round_epoch, range_gradient_clipping, rate_gradient_clipping, threshold_differential, threshold_loss, rate_annealing)
+        Test(network, sample_test, label_test)
+        Train(network, sample_training, label_training, round_epoch, range_gradient_clipping, rate_gradient_clipping, threshold_differential, threshold_loss, rate_annealing)
     w = []
     for m in network.list_weight:
         w.append(m.tolist())

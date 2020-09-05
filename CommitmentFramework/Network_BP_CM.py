@@ -27,7 +27,12 @@ class Network:
     # plot
     history_train_loss = []
     history_test_loss = []
+    history_CMC_loss = []
+    # history_CME_loss = []
+    history_train_acc = []
     history_test_acc = []
+    history_CMC_acc = []
+    # history_CME_acc= []
 
     # initialization
     def __init__(self, list_description: list, rate_learning: float, rate_regularization: float):
@@ -124,9 +129,20 @@ class Network:
             # self.list_weight[i] = cp.subtract(cp.asarray(self.list_weight[i], dtype='float32'), cp.multiply(gradient_current_average, self.rate_learning))
         self.list_loss_history.append(loss_sum / len(array_input))
 
+def GetAverageAndStd(abs_path: str):
+    print("Calculating average and std...", end='')
+    f = open(abs_path,"rb")
+    raw=np.loadtxt(f,delimiter=',',skiprows=1)
+    f.close()
+    raw=np.array(raw)[:,1:]
+    average=np.mean(raw,axis=0)
+    std=np.std(raw,axis=0)
+    print("Done")
+    return cp.asarray(average),cp.asarray(std)
+
 
 # load training set
-def LoadDataset(abs_path: str, size_batch: int = 1, normalization=False):
+def LoadDataset(abs_path: str, size_batch: int = 1, normalization=False, average=0, std=0):
     print("Loading training set...", end='')
     sample = []
     label = []
@@ -139,14 +155,16 @@ def LoadDataset(abs_path: str, size_batch: int = 1, normalization=False):
             continue
         sample_temp_1 = []
         # user-defined rules of label and pre-process required
-        # label_temp_1=[0,0,0]
-        # label_temp_1[int(row[-1])-1]=1
-        label_temp_1 = [1, 0, 0, 0, 0, 0] if row[-1] == 'WALKING' else [0, 1, 0, 0, 0, 0] if row[-1] == 'SITTING' else [
-            0, 0, 1, 0, 0, 0] if row[-1] == 'STANDING' else [0, 0, 0, 1, 0, 0] if row[-1] == 'LAYING' else [0, 0, 0, 0,
-                                                                                                            1, 0] if \
-            row[-1] == 'WALKING_UPSTAIRS' else [0, 0, 0, 0, 0, 1]
-        row.pop(-1)
-        # row.pop(0)
+
+        # label_temp_1 = [1, 0, 0, 0, 0, 0] if row[-1] == 'WALKING' else [0, 1, 0, 0, 0, 0] if row[-1] == 'SITTING' else [
+        #     0, 0, 1, 0, 0, 0] if row[-1] == 'STANDING' else [0, 0, 0, 1, 0, 0] if row[-1] == 'LAYING' else [0, 0, 0, 0,
+        #                                                                                                     1, 0] if \
+        #     row[-1] == 'WALKING_UPSTAIRS' else [0, 0, 0, 0, 0, 1]
+        # row.pop(-1)
+
+        label_temp_1=[0,0]
+        label_temp_1[int(row[0])]=1
+        row.pop(0)
 
         # row.pop(0)
         for num in row:
@@ -161,21 +179,27 @@ def LoadDataset(abs_path: str, size_batch: int = 1, normalization=False):
             if normalization:
                 # print(sample_temp_2)
                 sample_temp_2=cp.asarray(sample_temp_2)
-                sample_temp_2=cp.add(sample_temp_2,0.001)
-                mu=cp.mean(sample_temp_2, axis=0)+0.001
-                sigma=cp.std(sample_temp_2, axis=0)+0.001
-                sample_temp_2=((sample_temp_2-mu)/sigma).tolist()
+                # sample_temp_2=cp.add(sample_temp_2,0.00001)
+                # mu=cp.mean(sample_temp_2, axis=0)
+                # sigma=cp.std(sample_temp_2, axis=0)
+                # sample_temp_2=((sample_temp_2-mu)/sigma).tolist()
+                # print(sample_temp_2)
+                # mu = cp.mean(sample_temp_2, axis=0)
+                # sigma = cp.std(sample_temp_2, axis=0)
+                sample_temp_2 = (sample_temp_2 - average) / std
+                sample_temp_2[cp.isnan(sample_temp_2)] = 0
+                sample_temp_2.tolist()
                 # print(sample_temp_2)
             sample.append(sample_temp_2.copy())
             label.append(label_temp_2.copy())
-            sample_temp_2.clear()
+            sample_temp_2=[]
             label_temp_2.clear()
     f.close()
     print("Done")
     return sample, label
 
-def LoadDatasetPoisoned(abs_path: str, size_batch: int = 1, normalization=False):
-    print("Loading training set...", end='')
+def LoadDatasetLabelFlipping(abs_path: str, size_batch: int = 1, normalization=False, average=0, std=0, threshold=0):
+    print("Loading poisoned training set...", end='')
     sample = []
     label = []
     f = open(abs_path)
@@ -183,18 +207,30 @@ def LoadDatasetPoisoned(abs_path: str, size_batch: int = 1, normalization=False)
     sample_temp_2 = []
     label_temp_2 = []
     import random
-    for i, row in enumerate(f_csv):
+    cnt=0
+    for i ,row in enumerate(f_csv):
         if i == 0:
             continue
         sample_temp_1 = []
         # user-defined rules of label and pre-process required
-        # label_temp_1=[0,0,0]
-        # label_temp_1[int(row[-1])-1]=1
-        label_temp_1 = [0, 1, 0, 0, 0, 0] if row[-1] == 'WALKING' else [0, 0, 1, 0, 0, 0] if row[-1] == 'SITTING' else [
-            0, 0, 0, 1, 0, 0] if row[-1] == 'STANDING' else [0, 0, 0, 0, 1, 0] if row[-1] == 'LAYING' else [0, 0, 0, 0,
-                                                                                                            0, 1] if \
-            row[-1] == 'WALKING_UPSTAIRS' else [1, 0, 0, 0, 0, 0]
-        row.pop(-1)
+
+        # label_temp_1 = [0, 1, 0, 0, 0, 0] if row[-1] == 'WALKING' else [0, 0, 1, 0, 0, 0] if row[-1] == 'SITTING' else [
+        #     0, 0, 0, 1, 0, 0] if row[-1] == 'STANDING' else [0, 0, 0, 0, 1, 0] if row[-1] == 'LAYING' else [0, 0, 0, 0,
+        #                                                                                                     0, 1] if \
+        #     row[-1] == 'WALKING_UPSTAIRS' else [1, 0, 0, 0, 0, 0]
+        # row.pop(-1)
+        # print(i,threshold)
+        if i < threshold:
+            label_temp_1 = [1, 1]
+            label_temp_1[int(row[0])] = 0
+            # print(label_temp_1,row[0])
+            row.pop(0)
+        else:
+            label_temp_1 = [0, 0]
+            label_temp_1[int(row[0])] = 1
+            row.pop(0)
+        # label_temp_1=[0,0]
+        # label_temp_1[int(row[0])-1]=1
         # row.pop(0)
 
         # row.pop(0)
@@ -210,18 +246,59 @@ def LoadDatasetPoisoned(abs_path: str, size_batch: int = 1, normalization=False)
             if normalization:
                 # print(sample_temp_2)
                 sample_temp_2 = cp.asarray(sample_temp_2)
-                sample_temp_2 = cp.add(sample_temp_2, 0.001)
-                mu = cp.mean(sample_temp_2, axis=0) + 0.001
-                sigma = cp.std(sample_temp_2, axis=0) + 0.001
-                sample_temp_2 = ((sample_temp_2 - mu) / sigma).tolist()
+                # sample_temp_2 = cp.add(sample_temp_2, 0.00001)
+                # mu = cp.mean(sample_temp_2, axis=0)+0.00001
+                # sigma = cp.std(sample_temp_2, axis=0)+0.00001
+                sample_temp_2 = (sample_temp_2 - average) / std
+                sample_temp_2[cp.isnan(sample_temp_2)] = 0
+                sample_temp_2.tolist()
                 # print(sample_temp_2)
             sample.append(sample_temp_2.copy())
             label.append(label_temp_2.copy())
-            sample_temp_2.clear()
+            sample_temp_2=[]
             label_temp_2.clear()
+            cnt+=1
     f.close()
     print("Done")
+    print('--------------------------------------------------')
+    print(f'Total sample: {cnt}')
+    print(f'Label flipped: {threshold}')
+    print(f'Percentage:{threshold*100/cnt}%')
+    print('--------------------------------------------------')
     return sample, label
+
+# commitment
+def Commitment(sample_train: list, label_train: list, precise: int):
+    print("Making commitment of training set...", end='')
+    list_sample_split=[[],[]]
+    sample_cm=[]
+    label_cm=[]
+    for sample_batch, label_batch in zip(sample_train,label_train):
+        for sample, label in zip(sample_batch,label_batch):
+            list_sample_split[label.index(max(label))].append(sample.tolist())
+    for cluster, cluster_label in zip(list_sample_split, range(0,len(list_sample_split))):
+        c=np.array(cluster)
+        for i in c:
+            # print(i.__class__)
+            distance=[]
+            for j in c:
+                distance.append(np.linalg.norm(i-j))
+            # print(distance)
+            distance_=distance.copy()
+            distance_.sort()
+            cm=[]
+            for cnt in range(0,precise):
+                cm.append(c[distance.index(distance_[cnt])])
+            sample_cm.append([np.array(cm).mean(axis=0).tolist()])
+            # print(sample_cm)
+            # if not len(label_cm)==0:
+            #     print(label_cm[-1])
+            l=[0,0]
+            l[cluster_label]=1
+            label_cm.append([l])
+    print('Done')
+    return sample_cm, label_cm
+
 
 # Training
 def Train(network: Network, sample_train: list, label_train: list, round_epoch: int, range_gradient_clipping: float,
@@ -249,26 +326,109 @@ def Train(network: Network, sample_train: list, label_train: list, round_epoch: 
     network.list_loss_history=[]
 
 
-def Test(network: Network, sample_test: list, label_test: list):
+def Test_test(network: Network, sample_test: list, label_test: list):
     # predict
     err = 0
+    cnt = 0
     loss=[]
+    # print(sample_test)
     for batch_sample, batch_label in zip(sample_test,label_test):
-        loss.append(cp.sum(cp.abs(cp.subtract(cp.asarray(network.Predict(batch_sample)[0]), cp.asarray(batch_label[0])))))
+        # print(len(batch_sample))
+        # print(len(network.Predict(batch_sample)[0]))
+        result=network.Predict(batch_sample)
+        loss.append(cp.abs(cp.subtract(cp.asarray(result), cp.asarray(batch_label))).mean(axis=0).sum())
+        # print(result,batch_label)
+        for r,l in zip(result, batch_label):
+            # print(r,l)
+            # print(np.argmax(cp.asnumpy(r)),np.argmax(cp.asnumpy(l)))
+            if np.argmax(cp.asnumpy(r)) == np.argmax(cp.asnumpy(l)):
+                # print(network.Predict(batch_sample)[0])
+                cnt += 1
+                continue
+            else:
+                err += 1
+                cnt += 1
     loss=cp.mean(cp.asarray(loss)).tolist()
     network.history_test_loss.append(loss)
-    for batch_sample, batch_label in zip(sample_test, label_test):
-        # print(network.Predict(batch_sample))
-        # print(batch_sample)
-        # print('===============')
-        # print("Predict:{}".format(network.Predict(batch_sample)[0]))
-        # print('label:{}'.format(cp.asnumpy(batch_label[0])))
-        if np.argmax(cp.asnumpy(network.Predict(batch_sample)[0])) == np.argmax(cp.asnumpy(batch_label[0])):
-            continue
-        else:
-            err += 1
-    network.history_test_acc.append(1-(err / len(sample_test)))
-    # print(network.history_test_err[-1])
+    network.history_test_acc.append(1-(err / cnt))
+
+def Test_train(network: Network, sample_train: list, label_train: list):
+    # predict
+    err = 0
+    cnt = 0
+    # loss=[]
+    # print(sample_test)
+    for batch_sample, batch_label in zip(sample_train, label_train):
+        # print(len(batch_sample))
+        # print(len(network.Predict(batch_sample)[0]))
+        result=network.Predict(batch_sample)
+        # loss.append(cp.abs(cp.subtract(cp.asarray(result), cp.asarray(batch_label))).mean(axis=0).sum())
+        # print(result,batch_label)
+        for r,l in zip(result, batch_label):
+            # print(r,l)
+            # print(np.argmax(cp.asnumpy(r)),np.argmax(cp.asnumpy(l)))
+            if np.argmax(cp.asnumpy(r)) == np.argmax(cp.asnumpy(l)):
+                # print(network.Predict(batch_sample)[0])
+                cnt += 1
+                continue
+            else:
+                err += 1
+                cnt += 1
+    # loss=cp.mean(cp.asarray(loss)).tolist()
+    # network.history_test_loss.append(loss)
+    network.history_train_acc.append(1-(err / cnt))
+
+def Test_cmc(network: Network, sample_cmc: list, label_cmc: list):
+    # predict
+    err = 0
+    cnt = 0
+    loss=[]
+    # print(sample_test)
+    for batch_sample, batch_label in zip(sample_cmc, label_cmc):
+        # print(len(batch_sample))
+        # print(len(network.Predict(batch_sample)[0]))
+        result=network.Predict(batch_sample)
+        loss.append(cp.abs(cp.subtract(cp.asarray(result), cp.asarray(batch_label))).mean(axis=0).sum())
+        # print(result,batch_label)
+        for r,l in zip(result, batch_label):
+            # print(r,l)
+            # print(np.argmax(cp.asnumpy(r)),np.argmax(cp.asnumpy(l)))
+            if np.argmax(cp.asnumpy(r)) == np.argmax(cp.asnumpy(l)):
+                # print(network.Predict(batch_sample)[0])
+                cnt += 1
+                continue
+            else:
+                err += 1
+                cnt += 1
+    loss=cp.mean(cp.asarray(loss)).tolist()
+    network.history_CMC_loss.append(loss)
+    network.history_CMC_acc.append(1-(err / cnt))
+
+# def Test_cme(network: Network, sample_cme: list, label_cme: list):
+#     # predict
+#     err = 0
+#     cnt = 0
+#     loss=[]
+#     # print(sample_test)
+#     for batch_sample, batch_label in zip(sample_cme, label_cme):
+#         # print(len(batch_sample))
+#         # print(len(network.Predict(batch_sample)[0]))
+#         result=network.Predict(batch_sample)
+#         loss.append(cp.abs(cp.subtract(cp.asarray(result), cp.asarray(batch_label))).mean(axis=0).sum())
+#         # print(result,batch_label)
+#         for r,l in zip(result, batch_label):
+#             # print(r,l)
+#             # print(np.argmax(cp.asnumpy(r)),np.argmax(cp.asnumpy(l)))
+#             if np.argmax(cp.asnumpy(r)) == np.argmax(cp.asnumpy(l)):
+#                 # print(network.Predict(batch_sample)[0])
+#                 cnt += 1
+#                 continue
+#             else:
+#                 err += 1
+#                 cnt += 1
+#     loss=cp.mean(cp.asarray(loss)).tolist()
+#     network.history_CME_loss.append(loss)
+#     network.history_CME_acc.append(1-(err / cnt))
 
 # # statistic
 # time_end=time()

@@ -2,7 +2,7 @@ from __future__ import division
 import heapq
 import multiprocessing
 
-from Network import *
+from Network_BP import *
 from time import *
 from flask import Flask, request
 import requests
@@ -29,7 +29,7 @@ network = Network([561, 1122, 6], rate_learning, rate_regularization)
 # training parameters
 path_training = '../train6.csv'
 size_batch = 10
-round_epoch = 5
+round_epoch = 10
 sample_training, label_training = LoadDataset(path_training, size_batch, True)
 
 # testing parameters

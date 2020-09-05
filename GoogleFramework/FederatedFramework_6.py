@@ -1,6 +1,6 @@
 import threading
 
-from Network import *
+from Network_BP import *
 from time import *
 from flask import Flask, request
 import requests
@@ -167,6 +167,6 @@ def get_testing_loss_plot():
 if __name__ == '__main__':
     # multiprocessing.Process(target=app_run).start()
     lock=threading.Lock()
-    sample_training, label_training = LoadDataset(path_training, size_batch)
-    sample_test, label_test = LoadDataset(path_testing)
+    sample_training, label_training = LoadDataset(path_training, size_batch, True)
+    sample_test, label_test = LoadDataset(path_testing, size_batch, True)
     app.run(host='{}'.format(addr), port=9006)

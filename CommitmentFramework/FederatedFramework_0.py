@@ -1,6 +1,6 @@
 import threading
 
-from Network_BP import *
+from CommitmentFramework.Network_BP_CM import *
 from time import *
 from flask import Flask, request
 import requests
@@ -11,8 +11,11 @@ import multiprocessing
 from multiprocessing import Pipe, Queue, Manager
 from multiprocessing.managers import BaseManager
 import pickle
+import datetime
+import cupy.cuda
 
 app = Flask(__name__)
+device=0
 
 # initialization
 time_start = time()
@@ -20,19 +23,27 @@ time_start = time()
 # neural network parameters
 rate_learning = 0.001
 rate_regularization = 0
-network = Network([561, 1122, 6], rate_learning, rate_regularization)
+# network = Network([50*50, 25*25, 725, 512,200,100,100,100,100,100,50, 2], rate_learning, rate_regularization)
+# network = Network([50*50, 50*25, 25*25, 12*25, 6*25, 3*25, 40, 20, 10, 4, 2], rate_learning, rate_regularization)
+# network = Network([35*35, 35*35,35*25,35*25,35*15,35*15,35*5,30*5,25*5,20*5,10*5, 2], rate_learning, rate_regularization)
+with cupy.cuda.Device(device):
+    network = Network([35*35, 1000,2], rate_learning, rate_regularization)
 
 # training parameters
-path_training = '../train0.csv'
-size_batch = 10
-round_epoch = 5
+path_training = '../dataset-commit/subject1/train.csv'
+size_batch = 1
+round_epoch = 1
 # sample_training=[]
 # label_training=[]
 
 # testing parameters
-path_testing = '../test0.csv'
+path_testing = '../dataset-commit/subject1/test.csv'
 # sample_test=[]
 # label_test=[]
+
+# cm parameters
+# path_cmc = '../dataset-commit/subject1/cm-center.csv'
+# path_cme = '../dataset-commit/subject1/cm-edge.csv'
 
 # annealing parameters
 rate_annealing = 10
@@ -47,13 +58,13 @@ range_gradient_clipping = 50
 s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 s.connect(('8.8.8.8', 80))
 addr = s.getsockname()[0]
-ip=range(9000,9010)
+ip=range(9000,9001)
 list_w=[]
 list_updated=[]
 list_finished=[]
 list_n=[]
 C=1
-K=10
+K=1
 cnt=0
 activated=False
 
@@ -79,20 +90,33 @@ def Signal():
 
 def Update():
     global network
-    Test(network, sample_test, label_test)
-    Train(network, sample_training, label_training, round_epoch, range_gradient_clipping, rate_gradient_clipping, threshold_differential, threshold_loss, rate_annealing)
-    w=[]
-    for m in network.list_weight:
-        w.append(m.tolist())
-    temp = {}
-    temp['w'] = json.dumps(w)
-    temp['n'] = len(sample_training)
-    temp['port'] = 9000
-    try:
-        for i in ip:
-            threading.Thread(target=Broadcast, args=(temp,i)).start()
-    except:
-        pass
+    global cnt
+    while True:
+        print('Global Epoch {} at {}...'.format(cnt, datetime.datetime.now()))
+        cnt+=1
+        # if cnt%100 ==0:
+        #     network.rate_learning=network.rate_learning*0.1
+        if cnt==400:
+            break
+        with cupy.cuda.Device(device):
+            Test_train(network, sample_training, label_training)
+            Test_test(network, sample_test, label_test)
+            Test_cmc(network, sample_cm, label_cm)
+            # Test_cme(network, sample_cme, label_cme)
+            Train(network, sample_training, label_training, round_epoch, range_gradient_clipping, rate_gradient_clipping, threshold_differential, threshold_loss, rate_annealing)
+        # sleep(10)
+    # w=[]
+    # for m in network.list_weight:
+    #     w.append(m.tolist())
+    # temp = {}
+    # temp['w'] = json.dumps(w)
+    # temp['n'] = len(sample_training)
+    # temp['port'] = 9000
+    # try:
+    #     for i in ip:
+    #         threading.Thread(target=Broadcast, args=(temp,i)).start()
+    # except:
+    #     pass
 
 @app.route('/FederatedAverage', methods=['POST'])
 def FederatedAverage():
@@ -144,29 +168,57 @@ def activate():
     global sample_training, label_training, sample_test, label_test
     global queue
     global network
-    if not activated:
-        print('Global Epoch {}...'.format(cnt))
+    # if not activated:
+
         # weight, train_loss, test_loss = (network.list_weight, network.history_train_loss, network.history_test_loss)
-        update = threading.Thread(target=Update)
-        update.start()
-        activated=True
+    update = threading.Thread(target=Update)
+    update.start()
+    activated=True
     return 'Activated.', 200
 
-@app.route('/plot_train',methods=['GET'])
-def get_training_plot():
+@app.route('/plot_train_loss',methods=['GET'])
+def get_training_loss():
     return json.dumps(network.history_train_loss)
 
-@app.route('/plot_test',methods=['GET'])
-def get_testing_plot():
+@app.route('/plot_train_acc',methods=['GET'])
+def get_training_acc():
+    return json.dumps(network.history_train_acc)
+
+@app.route('/plot_test_acc',methods=['GET'])
+def get_testing_acc():
     return json.dumps(network.history_test_acc)
 
 @app.route('/plot_test_loss',methods=['GET'])
-def get_testing_loss_plot():
+def get_testing_loss():
     return json.dumps(network.history_test_loss)
+
+@app.route('/plot_cm_acc',methods=['GET'])
+def get_cm_acc():
+    return json.dumps(network.history_CMC_acc)
+
+@app.route('/plot_cm_loss',methods=['GET'])
+def get_cm_loss():
+    return json.dumps(network.history_CMC_loss)
+
+# @app.route('/plot_cme_acc',methods=['GET'])
+# def get_cme_acc():
+#     return json.dumps(network.history_CME_acc)
+#
+# @app.route('/plot_cme_loss',methods=['GET'])
+# def get_cme_loss():
+#     return json.dumps(network.history_CME_loss)
 
 if __name__ == '__main__':
     # multiprocessing.Process(target=app_run).start()
     lock=threading.Lock()
-    sample_training, label_training = LoadDataset(path_training, size_batch, True)
-    sample_test, label_test = LoadDataset(path_testing, size_batch, True)
+    average, std = GetAverageAndStd(path_training)
+    sample_training, label_training = LoadDataset(path_training, size_batch, normalization=True, average=average, std=std)
+    sample_test, label_test = LoadDataset(path_testing, 1, normalization=True, average=average, std=std)
+    # sample_cmc, label_cmc = LoadDataset(path_cmc, 1, normalization=True, average=average, std=std)
+    # print(sample_cmc[0])
+    sample_cm, label_cm = Commitment(sample_training,label_training,5)
+    sample_training, label_training = LoadDatasetLabelFlipping(path_training, size_batch, normalization=True, average=average, std=std, threshold=1700)
+    # print(sample_cmc[0])
+    # sample_cme, label_cme = LoadDataset(path_cme, 1, normalization=True, average=average, std=std)
+    # print(len(sample_training[0][0]))
     app.run(host='{}'.format(addr), port=9000)

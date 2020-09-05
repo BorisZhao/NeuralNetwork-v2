@@ -2,7 +2,7 @@ from __future__ import division
 import heapq
 import multiprocessing
 
-from Network import *
+from Network_BP import *
 from time import *
 from flask import Flask, request
 import requests
@@ -14,9 +14,9 @@ import socket
 
 app = Flask(__name__)
 
-import logging
-log = logging.getLogger('werkzeug')
-log.setLevel(logging.ERROR)
+# import logging
+# log = logging.getLogger('werkzeug')
+# log.setLevel(logging.ERROR)
 
 # initialization
 time_start = time()
@@ -29,7 +29,7 @@ network = Network([561, 1122, 6], rate_learning, rate_regularization)
 # training parameters
 path_training = '../train9.csv'
 size_batch = 10
-round_epoch = 5
+round_epoch = 10
 sample_training, label_training = LoadDataset(path_training, size_batch, True)
 
 # testing parameters

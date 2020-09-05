@@ -1,4 +1,4 @@
-from Network import *
+from Network_BP import *
 from time import *
 from flask import Flask, request
 import requests
